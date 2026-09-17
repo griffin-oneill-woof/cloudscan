@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.DS_Store
+.env
+
+# scan/batch output — run artifacts, not source
+*.csv

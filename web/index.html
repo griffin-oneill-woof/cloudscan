@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CloudScan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#F3F6F7; --surface:#FFFFFF; --sunk:#EAF0F2; --ink:#15212B; --muted:#5A6874; --line:#D9E1E6;
+  --accent:#0E6B6B; --accent-ink:#FFFFFF; --focus:#0E6B6B;
+  --aws:#B4650A; --aws-bg:#FBEEDD; --gcp:#23864F; --gcp-bg:#E2F3E8; --azure:#0B6FC4; --azure-bg:#E0EEFA;
+  --none:#6B7780; --none-bg:#ECEFF1; --warn:#9A5B00; --warn-bg:#FFF3DC; --bad:#B3261E; --bad-bg:#FBEAE9;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#0E1419; --surface:#161F27; --sunk:#1C2731; --ink:#E4ECF1; --muted:#98A6B2; --line:#2A3743;
+  --accent:#4FB3B0; --accent-ink:#06201F; --focus:#4FB3B0;
+  --aws:#F0A24A; --aws-bg:#3A2A17; --gcp:#5CC98B; --gcp-bg:#16301F; --azure:#5AA9EE; --azure-bg:#132A40;
+  --none:#9AA6AF; --none-bg:#232E37; --warn:#F2B75B; --warn-bg:#35280F; --bad:#F28B84; --bad-bg:#3A1B18;
+}}
+:root[data-theme="dark"]{
+  --ground:#0E1419; --surface:#161F27; --sunk:#1C2731; --ink:#E4ECF1; --muted:#98A6B2; --line:#2A3743;
+  --accent:#4FB3B0; --accent-ink:#06201F; --focus:#4FB3B0;
+  --aws:#F0A24A; --aws-bg:#3A2A17; --gcp:#5CC98B; --gcp-bg:#16301F; --azure:#5AA9EE; --azure-bg:#132A40;
+  --none:#9AA6AF; --none-bg:#232E37; --warn:#F2B75B; --warn-bg:#35280F; --bad:#F28B84; --bad-bg:#3A1B18;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:920px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:grid;gap:22px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{margin:4px 0 0;color:var(--muted);max-width:64ch}
+.themetoggle{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;background:var(--sunk);color:var(--muted);border:1px solid var(--line);cursor:pointer}
+form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.field{flex:1 1 320px;display:flex;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 12px}
+.field:focus-within{border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 25%,transparent)}
+.field span{color:var(--muted);font-family:var(--mono);font-size:14px}
+input[type=text]{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font-family:var(--mono);font-size:16px;padding:13px 6px}
+.opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
+button{font-family:var(--sans);font-size:15px;font-weight:600;border:0;border-radius:10px;padding:0 20px;min-height:48px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.55;cursor:progress}
+button:focus-visible,.ex:focus-visible,.themetoggle:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.examples{display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.ex{font-family:var(--mono);font-size:13px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:3px 10px;min-height:0;font-weight:400}
+.ex:hover{border-color:var(--accent)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:16px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0}
+.verdict{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.vdomain{font-family:var(--mono);font-size:20px;font-weight:500;word-break:break-all}
+.vname{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px;padding:6px 12px;border-radius:8px}
+.chip.aws{color:var(--aws);background:var(--aws-bg)} .chip.gcp{color:var(--gcp);background:var(--gcp-bg)}
+.chip.azure{color:var(--azure);background:var(--azure-bg)} .chip.none{color:var(--none);background:var(--none-bg)}
+.chip.warn{color:var(--warn);background:var(--warn-bg)} .chip.bad{color:var(--bad);background:var(--bad-bg)}
+.chip .conf{font-weight:400;opacity:.85;font-size:12px}
+.chip.likely{opacity:.72} .chip.possible{opacity:.5}
+.note{margin:0;color:var(--muted);font-size:14px;max-width:72ch}
+.cached{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.leadrow{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
+.gradebadge{font-family:var(--mono);font-size:28px;font-weight:500;width:56px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.gradebadge.A{color:var(--gcp);background:var(--gcp-bg)} .gradebadge.B{color:var(--azure);background:var(--azure-bg)}
+.gradebadge.C{color:var(--warn);background:var(--warn-bg)} .gradebadge.D{color:var(--none);background:var(--none-bg)}
+.leadscore{flex:1 1 220px;min-width:180px}
+.progress{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress b{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.factors{margin:0;padding-left:18px;color:var(--ink);font-size:14px;display:grid;gap:4px}
+.factors li{color:var(--ink)}
+.signals{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.signals li{font-size:14px;padding:8px 10px;background:var(--sunk);border-radius:8px}
+.signals a{color:var(--accent)}
+.grouped{display:grid;gap:14px}
+.srcgroup{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.srchead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.srcname{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--muted);text-transform:none}
+.evrow{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.strength{flex:none;font-size:11px;font-weight:600;padding:1px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+.strength.strong{color:var(--accent-ink);background:var(--accent)}
+.strength.medium{color:var(--warn);background:var(--warn-bg)}
+.strength.weak{color:var(--muted);background:var(--sunk)}
+.evdetail a{color:var(--accent);text-decoration:none} .evdetail a:hover{text-decoration:underline}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+.mono{font-family:var(--mono)}
+.statusok{color:var(--gcp)} .statuserr{color:var(--bad)}
+.altrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.empty{color:var(--muted)}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--sunk);border-top-color:var(--accent);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;gap:10px;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){.progress b{transition:none}.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>CloudScan</h1>
+      <p class="sub">Enter a domain, URL or company name to see which cloud it runs on and the public signals that make it a cloud-cost lead, from open data only.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <input id="apiKey" type="password" placeholder="API key (if required)" autocomplete="off" spellcheck="false"
+             style="font-family:var(--mono);font-size:12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:5px 12px;width:150px">
+      <button class="themetoggle" id="themeBtn" type="button" aria-pressed="false">Theme: Auto</button>
+    </div>
+  </header>
+
+  <form id="f" autocomplete="off">
+    <label class="field" for="q"><span>Q</span><input id="q" type="text" placeholder="company.com, https://company.com, or Company Name" spellcheck="false" autocapitalize="off"></label>
+    <label class="opt"><input type="checkbox" id="fast"> Fast (DNS + headers only)</label>
+    <label class="opt"><input type="checkbox" id="fresh"> Skip cache</label>
+    <button id="go" type="submit">Scan</button>
+  </form>
+  <div class="examples">Try:
+    <button class="ex" type="button" data-q="unitq.com">unitq.com</button>
+    <button class="ex" type="button" data-q="airbyte.com">airbyte.com</button>
+    <button class="ex" type="button" data-q="mixpanel.com">mixpanel.com</button>
+    <button class="ex" type="button" data-q="netlify.com">netlify.com</button>
+    <button class="ex" type="button" data-q="tailscale.com">tailscale.com</button>
+  </div>
+
+  <section id="out" aria-live="polite" style="display:grid;gap:16px">
+    <p class="empty">Results appear here.</p>
+  </section>
+</div>
+
+<script>
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const providerLabel = {aws:'AWS', gcp:'Google Cloud', azure:'Azure'};
+
+const form = $('#f'), input = $('#q'), out = $('#out'), goBtn = $('#go');
+const fastBox = $('#fast'), freshBox = $('#fresh'), keyInput = $('#apiKey');
+
+try { keyInput.value = localStorage.getItem('cloudscan_api_key') || ''; } catch {}
+keyInput.addEventListener('change', () => { try { localStorage.setItem('cloudscan_api_key', keyInput.value); } catch {} });
+
+$('#themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  const cur = root.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : cur === 'light' ? null : 'dark';
+  if (next) root.setAttribute('data-theme', next); else root.removeAttribute('data-theme');
+  $('#themeBtn').textContent = 'Theme: ' + (next ? next[0].toUpperCase() + next.slice(1) : 'Auto');
+});
+
+document.querySelectorAll('.ex').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.q; runScan(); }));
+form.addEventListener('submit', e => { e.preventDefault(); runScan(); });
+
+function confClass(conf) { return conf === 'confirmed' ? '' : conf === 'likely' ? 'likely' : 'possible'; }
+
+function renderVerdictChips(verdicts) {
+  if (!verdicts || !verdicts.length) return '<span class="chip none">No cloud provider detected</span>';
+  return verdicts.map(v => `
+    <span class="chip ${v.provider} ${confClass(v.confidence)}">
+      ${esc(providerLabel[v.provider] || v.provider.toUpperCase())}
+      <span class="conf">${esc(v.confidence)} · score ${v.score} · ${v.evidence_count} obs.</span>
+    </span>`).join('');
+}
+
+function renderLead(lead, signals) {
+  const factors = (lead.factors || []).map(f => `<li>${esc(f)}</li>`).join('') || '<li class="empty">No scoring factors.</li>';
+  const sig = (signals || []).map(s => `<li>${esc(s.detail)}${s.url ? ` — <a href="${esc(s.url)}" target="_blank" rel="noopener">source</a>` : ''}</li>`).join('');
+  return `
+  <div class="panel">
+    <p class="eyebrow">Lead score</p>
+    <div class="leadrow">
+      <div class="gradebadge ${esc(lead.grade)}">${esc(lead.grade)}</div>
+      <div class="leadscore">
+        <div class="mono">${lead.score} / 100</div>
+        <div class="progress"><b style="width:${lead.score}%"></b></div>
+      </div>
+    </div>
+    <ul class="factors">${factors}</ul>
+    ${signals && signals.length ? `<p class="eyebrow">Public lead signals</p><ul class="signals">${sig}</ul>` : ''}
+  </div>`;
+}
+
+function renderEvidence(evidence) {
+  if (!evidence || !evidence.length) return '<p class="empty">No evidence collected.</p>';
+  const bySource = {};
+  for (const e of evidence) (bySource[e.source] ||= []).push(e);
+  return `<div class="grouped">${Object.entries(bySource).map(([source, items]) => `
+    <div class="srcgroup">
+      <div class="srchead"><span class="srcname">${esc(source)}</span></div>
+      ${items.map(e => `
+        <div class="evrow">
+          <span class="strength ${esc(e.strength)}">${esc(e.strength)}</span>
+          <span class="evdetail">${esc(providerLabel[e.provider] || e.provider)}: ${esc(e.detail)}${e.url ? ` — <a href="${esc(e.url)}" target="_blank" rel="noopener">link</a>` : ''}</span>
+        </div>`).join('')}
+    </div>`).join('')}</div>`;
+}
+
+function renderCollectors(collectors) {
+  if (!collectors || !collectors.length) return '<p class="empty">No collector data.</p>';
+  return `<div class="tablewrap"><table>
+    <thead><tr><th>Source</th><th>Evidence</th><th>Signals</th><th>Duration</th><th>Status</th></tr></thead>
+    <tbody>${collectors.map(c => `
+      <tr>
+        <td class="mono">${esc(c.name)}</td>
+        <td>${c.evidence}</td>
+        <td>${c.signals}</td>
+        <td class="mono">${c.duration_ms} ms</td>
+        <td class="${c.error ? 'statuserr' : 'statusok'}">${esc(c.error || (c.notes && c.notes[0]) || 'ok')}</td>
+      </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function renderAlternatives(alts, query) {
+  if (!alts || !alts.length) return '';
+  return `<div class="panel">
+    <p class="eyebrow">Other matches for "${esc(query)}"</p>
+    <div class="altrow">${alts.map(a => `<button class="ex" type="button" data-alt="${esc(a.domain)}">${esc(a.name || a.domain)} (${esc(a.domain)})</button>`).join('')}</div>
+  </div>`;
+}
+
+function renderReport(body, query) {
+  const c = body.company;
+  const chunks = [];
+  chunks.push(`
+    <div class="panel">
+      <div class="srchead">
+        <p class="eyebrow">Verdict</p>
+        <span class="cached">${body.cached ? 'from cache' : 'fresh scan'} · ${esc(body.scanned_at || '')} · ${body.hosts_checked || 0} hosts checked</span>
+      </div>
+      <div class="verdict">
+        <span class="vdomain">${esc(c.domain)}</span>
+        ${c.name ? `<span class="vname">${esc(c.name)}</span>` : ''}
+      </div>
+      <div class="chips">${renderVerdictChips(body.verdicts)}</div>
+      <p class="note">${esc(body.summary)}</p>
+    </div>`);
+  chunks.push(renderAlternatives(body.alternatives, query));
+  chunks.push(renderLead(body.lead, body.signals));
+  chunks.push(`<div class="panel"><p class="eyebrow">Evidence</p>${renderEvidence(body.evidence)}</div>`);
+  chunks.push(`<div class="panel"><p class="eyebrow">Sources checked</p>${renderCollectors(body.collectors)}</div>`);
+  out.innerHTML = chunks.filter(Boolean).join('');
+  out.querySelectorAll('[data-alt]').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.alt; runScan(); }));
+}
+
+function renderError(message) {
+  document.getElementById('out').innerHTML = `<p class="empty">${esc(message)}</p>`;
+}
+
+async function runScan() {
+  const q = input.value.trim();
+  if (!q) { input.focus(); return; }
+  goBtn.disabled = true;
+  document.getElementById('out').innerHTML = '<div class="loading"><span class="spin"></span> Scanning…</div>';
+  const params = new URLSearchParams({ q, fast: fastBox.checked, fresh: freshBox.checked });
+  const headers = keyInput.value ? { 'X-Api-Key': keyInput.value } : {};
+  try {
+    const res = await fetch(`/api/scan?${params}`, { headers });
+    const body = await res.json();
+    if (!res.ok) { renderError(body.detail || body.message || `Error ${res.status}`); return; }
+    renderReport(body, q);
+  } catch (err) {
+    renderError('Could not reach the CloudScan API: ' + err.message);
+  } finally {
+    goBtn.disabled = false;
+  }
+}
+</script>
+</body></html>
