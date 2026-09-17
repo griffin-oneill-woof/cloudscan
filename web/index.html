@@ -55,6 +55,9 @@ button:focus-visible,.ex:focus-visible,.themetoggle:focus-visible{outline:3px so
 .chip.warn{color:var(--warn);background:var(--warn-bg)} .chip.bad{color:var(--bad);background:var(--bad-bg)}
 .chip .conf{font-weight:400;opacity:.85;font-size:12px}
 .chip.likely{opacity:.72} .chip.possible{opacity:.5}
+.spendbadge{display:inline-flex;align-items:center;font-weight:600;font-size:13px;padding:5px 12px;border-radius:8px;text-transform:capitalize}
+.spendbadge.low{color:var(--none);background:var(--none-bg)} .spendbadge.medium{color:var(--warn);background:var(--warn-bg)}
+.spendbadge.high{color:var(--azure);background:var(--azure-bg)} .spendbadge.very-high{color:var(--bad);background:var(--bad-bg)}
 .note{margin:0;color:var(--muted);font-size:14px;max-width:72ch}
 .cached{font-size:12px;color:var(--muted);font-family:var(--mono)}
 .leadrow{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
@@ -178,6 +181,21 @@ function renderLead(lead, signals) {
   </div>`;
 }
 
+function renderSpend(spend) {
+  if (!spend) return '';
+  const factors = (spend.factors || []).map(f => `<li>${esc(f)}</li>`).join('');
+  const slug = spend.level.replace(' ', '-');
+  return `
+  <div class="panel">
+    <p class="eyebrow">Spend intensity</p>
+    <div class="leadrow">
+      <span class="spendbadge ${esc(slug)}">${esc(spend.level)}</span>
+      <span class="cached">Separate from lead score — how much higher this bill likely runs than headcount alone would suggest.</span>
+    </div>
+    <ul class="factors">${factors}</ul>
+  </div>`;
+}
+
 function renderEvidence(evidence) {
   if (!evidence || !evidence.length) return '<p class="empty">No evidence collected.</p>';
   const bySource = {};
@@ -234,6 +252,7 @@ function renderReport(body, query) {
     </div>`);
   chunks.push(renderAlternatives(body.alternatives, query));
   chunks.push(renderLead(body.lead, body.signals));
+  chunks.push(renderSpend(body.spend));
   chunks.push(`<div class="panel"><p class="eyebrow">Evidence</p>${renderEvidence(body.evidence)}</div>`);
   chunks.push(`<div class="panel"><p class="eyebrow">Sources checked</p>${renderCollectors(body.collectors)}</div>`);
   out.innerHTML = chunks.filter(Boolean).join('');

@@ -13,8 +13,8 @@ from cloudscan.collectors.github import analyze_repos, GitHub
 from cloudscan.collectors.base import ScanContext
 from cloudscan.engine import build_verdicts, scan_company
 from cloudscan.ipranges import IPRanges
-from cloudscan.leads import score_lead
-from cloudscan.models import Company, Evidence, CollectorResult
+from cloudscan.leads import estimate_spend_intensity, score_lead
+from cloudscan.models import Company, Evidence, ProviderVerdict, Signal, CollectorResult
 from cloudscan.net import Resolution, get_json_status
 from cloudscan.resolver import normalize_domain
 
@@ -66,7 +66,15 @@ def test_job_boards():
     ev, sig = analyze_jobs(gh, "Greenhouse", "job_boards")
     assert ev[0].provider == "aws" and ev[0].strength == "medium"
     kinds = {s.kind for s in sig}
-    assert {"hiring_cloud_role", "cost_focus", "hiring_volume"} <= kinds
+    assert {"hiring_cloud_role", "cost_focus", "hiring_volume", "container_infra"} <= kinds
+
+
+def test_job_boards_data_ml_signal():
+    jobs = normalize_greenhouse({"jobs": [
+        {"title": "ML Platform Engineer", "content": "Own our GPU training pipeline and Snowflake warehouse.", "absolute_url": "u1"},
+    ]})
+    _, sig = analyze_jobs(jobs, "Greenhouse", "job_boards")
+    assert any(s.kind == "data_ml_infra" for s in sig)
     assert normalize_lever([{"text": "DevOps", "descriptionPlain": "GCP and GKE", "lists": [{"content": "<li>BigQuery</li>"}]}])[0]["text"]
     assert normalize_ashby({"jobs": [{"title": "FinOps Analyst", "descriptionPlain": "Azure spend"}]})[0]["title"] == "FinOps Analyst"
 
@@ -91,6 +99,7 @@ def test_github():
              {"name": "fork", "fork": True, "description": "GCP"}]
     ev, sig = analyze_repos(repos, "acme", "github")
     assert ev[0].provider == "aws" and ev[0].strength == "medium" and sig
+    assert any(s.kind == "container_infra" for s in sig)
 
 
 def test_verdicts_and_leads():
@@ -101,6 +110,39 @@ def test_verdicts_and_leads():
     assert v[1].provider == "gcp" and v[1].confidence == "likely"
     lead = score_lead(v, ev, [], employees=200, country="United States")
     assert lead.score >= 70 and lead.grade == "A"
+
+
+def test_spend_intensity_low_with_no_signals():
+    v = [ProviderVerdict("aws", 12, "confirmed", 3)]
+    spend = estimate_spend_intensity(v, [], [], hosts_checked=37)
+    assert spend.level == "low" and spend.score == 0
+    assert "no workload-intensity signals" in spend.factors[0]
+
+
+def test_spend_intensity_container_and_data_ml_stack():
+    v = [ProviderVerdict("aws", 12, "confirmed", 3)]
+    signals = [Signal("container_infra", "K8s mentioned", "job_boards"), Signal("data_ml_infra", "GPU training", "job_boards")]
+    spend = estimate_spend_intensity(v, [], signals, hosts_checked=37)
+    assert spend.score == 50 and spend.level == "high"
+
+
+def test_spend_intensity_multi_cloud_and_region_and_surface():
+    v = [ProviderVerdict("aws", 12, "confirmed", 3), ProviderVerdict("gcp", 8, "likely", 2)]
+    evidence = [Evidence("aws", "strong", "dns_hosting", "app.acme.com -> lb.us-east-1.elb.amazonaws.com"),
+                Evidence("aws", "medium", "dns_hosting", "eu.acme.com -> lb.eu-west-1.elb.amazonaws.com")]
+    spend = estimate_spend_intensity(v, evidence, [], hosts_checked=95)
+    assert spend.score == 55  # 15 multi-cloud + 20 multi-region + 20 large surface
+    assert any("multi-region" in f for f in spend.factors)
+    assert any("multi-cloud" in f for f in spend.factors)
+
+
+def test_spend_intensity_everything_hits_very_high_ceiling():
+    v = [ProviderVerdict("aws", 12, "confirmed", 3), ProviderVerdict("gcp", 8, "likely", 2)]
+    evidence = [Evidence("aws", "strong", "dns_hosting", "a.acme.com -> lb.us-east-1.elb.amazonaws.com"),
+                Evidence("aws", "medium", "dns_hosting", "b.acme.com -> lb.eu-west-1.elb.amazonaws.com")]
+    signals = [Signal("container_infra", "K8s", "job_boards"), Signal("data_ml_infra", "GPU", "job_boards")]
+    spend = estimate_spend_intensity(v, evidence, signals, hosts_checked=95)
+    assert spend.level == "very high" and spend.score == 100  # capped at 100, not 105
 
 
 def test_ipranges():

@@ -12,7 +12,8 @@ SUBDOMAINS = {
     "graphql": "product", "backend": "product", "internal": "product",
     "staging": "infra", "dev": "infra", "beta": "infra", "cdn": "infra", "assets": "infra", "static": "infra",
     "media": "infra", "files": "infra", "upload": "infra", "uploads": "infra", "cloud": "infra", "data": "infra",
-    "img": "infra", "images": "infra", "k8s": "infra", "grafana": "infra", "vpn": "infra",
+    "img": "infra", "images": "infra", "k8s": "infra", "eks": "infra", "gke": "infra", "aks": "infra",
+    "grafana": "infra", "vpn": "infra",
 }
 
 # Hostname fragments (CNAME targets / PTR names) -> provider
@@ -91,3 +92,17 @@ ROLE_PATTERNS = {
     "data_role": r"\b(data engineer|ml engineer|machine learning engineer|mlops)\b",
 }
 COST_TEXT = r"(cloud cost|finops|cost optimi[sz]ation|reserved instances|savings plans?|committed use|spot instances|reduce (our )?(cloud|infrastructure) (spend|costs?))"
+
+# Workload-intensity text, for estimating spend rather than just detecting a provider. Container
+# orchestration and data/ML workloads consistently run well above what headcount alone predicts —
+# a 50-person ML company can outspend a 500-person CRUD SaaS shop.
+CONTAINER_TEXT = r"\b(kubernetes|k8s|helm chart|\bEKS\b|\bGKE\b|\bAKS\b|docker swarm|container orchestration)\b"
+ML_DATA_TEXT = (r"\b(GPU|A100|H100|CUDA|SageMaker|Vertex ?AI|model training|training pipeline|"
+                r"inference (cluster|endpoint)|\bLLM\b|Databricks|Snowflake|\bKafka\b|Apache Spark|"
+                r"data (lake|warehouse)|petabyte|real-?time (data )?pipeline)\b")
+# Region tokens that show up inside dns_hosting evidence details (a hostname or IP the provider
+# names after its own region) — used to spot multi-region deployments, another spend-intensity signal.
+REGION_TEXT = (r"\b(us-(east|west)-\d|eu-(west|north|south|central)-\d|ap-(southeast|northeast|south|east)-\d|"
+               r"sa-east-\d|ca-central-\d|eastus2?|westus2?3?|centralus|northcentralus|southcentralus|"
+               r"westeurope|northeurope|eastasia|southeastasia|"
+               r"(us|europe|asia|australia|southamerica)-(central|east|west|north|south|southeast|northeast)\d)\b")

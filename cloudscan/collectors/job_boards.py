@@ -43,7 +43,7 @@ def analyze_jobs(jobs: list[dict], board: str, source: str):
     evidence, signals = [], []
     per_provider: dict[str, list[dict]] = {}
     role_counts = {"cloud_role": [], "finops_role": [], "data_role": []}
-    cost_posts = []
+    cost_posts, container_posts, ml_data_posts = [], [], []
     for j in jobs:
         text = f"{j['title']} {j['text']}"
         for prov, terms in T.providers_in(text).items():
@@ -52,6 +52,10 @@ def analyze_jobs(jobs: list[dict], board: str, source: str):
             role_counts[role].append(j)
         if T.mentions_cost(text):
             cost_posts.append(j)
+        if T.mentions_containers(text):
+            container_posts.append(j)
+        if T.mentions_ml_data(text):
+            ml_data_posts.append(j)
     for prov, posts in per_provider.items():
         top = posts[0]
         # Never "strong": job text mentions a provider as often as a target/destination (a data or
@@ -72,6 +76,12 @@ def analyze_jobs(jobs: list[dict], board: str, source: str):
     if cost_posts:
         signals.append(Signal("cost_focus", f"{len(cost_posts)} job post(s) mention cloud cost work — e.g. “{cost_posts[0]['title']}”",
                               source, 10, cost_posts[0].get("url")))
+    if container_posts:
+        signals.append(Signal("container_infra", f"{len(container_posts)} job post(s) mention container/Kubernetes infrastructure — e.g. “{container_posts[0]['title']}”",
+                              source, 1, container_posts[0].get("url")))
+    if ml_data_posts:
+        signals.append(Signal("data_ml_infra", f"{len(ml_data_posts)} job post(s) mention data/ML infrastructure — e.g. “{ml_data_posts[0]['title']}”",
+                              source, 1, ml_data_posts[0].get("url")))
     if jobs:
         signals.append(Signal("hiring_volume", f"{len(jobs)} open roles on {board}", source, 5 if len(jobs) >= 20 else 2))
     return evidence, signals

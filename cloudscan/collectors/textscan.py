@@ -12,6 +12,8 @@ _COMPILED = {p: [re.compile(x) for x in pats] for p, pats in S.PROVIDER_TEXT.ite
 _SUBPROC = {p: [re.compile(x) for x in pats] for p, pats in S.SUBPROCESSOR_TEXT.items()}
 _ROLES = {k: re.compile(v, re.I) for k, v in S.ROLE_PATTERNS.items()}
 _COST = re.compile(S.COST_TEXT, re.I)
+_CONTAINER = re.compile(S.CONTAINER_TEXT, re.I)
+_ML_DATA = re.compile(S.ML_DATA_TEXT, re.I)
 
 
 def plain(text: str) -> str:
@@ -35,6 +37,14 @@ def roles_in(title: str) -> list[str]:
 
 def mentions_cost(text: str) -> bool:
     return bool(_COST.search(text))
+
+
+def mentions_containers(text: str) -> bool:
+    return bool(_CONTAINER.search(text))
+
+
+def mentions_ml_data(text: str) -> bool:
+    return bool(_ML_DATA.search(text))
 
 
 def snippet(text: str, term: str, width: int = 90) -> str:

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .collectors import REGISTRY, FAST
 from .collectors.base import ScanContext
 from .ipranges import IPRanges
-from .leads import score_lead
+from .leads import estimate_spend_intensity, score_lead
 from .models import (PROVIDER_LABELS, STRENGTH_WEIGHT, CollectorResult, Company, Evidence, ProviderVerdict, Report)
 from .net import DNS, http_client
 from .resolver import resolve_company
@@ -105,15 +105,18 @@ async def scan_company(company: Company, fast: bool = False, only: set[str] | No
     signals = [s for r in results for s in r.signals]
     verdicts = build_verdicts(uniq)
     primary = verdicts[0].provider if verdicts and verdicts[0].confidence != "possible" else None
+    hosts_checked = ctx.options.get("hosts_checked", 0)
     lead = score_lead(verdicts, uniq, signals, company.employees, company.country)
+    spend = estimate_spend_intensity(verdicts, uniq, signals, hosts_checked)
     order = {"strong": 0, "medium": 1, "weak": 2}
     return Report(
         company=company, verdicts=verdicts, primary=primary, summary=summarize(company, verdicts, signals),
         evidence=sorted(uniq, key=lambda e: (order[e.strength], e.provider, e.source)), signals=signals, lead=lead,
+        spend=spend,
         collectors=[{"name": r.name, "evidence": len(r.evidence), "signals": len(r.signals), "notes": r.notes,
                      "error": r.error, "duration_ms": r.duration_ms} for r in results],
         scanned_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        hosts_checked=ctx.options.get("hosts_checked", 0),
+        hosts_checked=hosts_checked,
     )
 
 

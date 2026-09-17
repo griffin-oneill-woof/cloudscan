@@ -68,6 +68,17 @@ class LeadProfile:
 
 
 @dataclass
+class SpendIntensity:
+    """How much higher this company's cloud bill likely runs than headcount alone would suggest.
+    A separate axis from LeadProfile on purpose: ICP-fit and infra-cost-intensity are different
+    questions — a 60-person ML company can be a weaker ICP fit (too small) yet a bigger bill than a
+    500-person SaaS company with light infra, and a rep should see both, not one blended number."""
+    level: str                       # low | medium | high | very high
+    score: int                       # 0-100, informational — not merged into LeadProfile.score
+    factors: list[str]
+
+
+@dataclass
 class Report:
     company: Company
     verdicts: list[ProviderVerdict]
@@ -76,6 +87,7 @@ class Report:
     evidence: list[Evidence]
     signals: list[Signal]
     lead: LeadProfile
+    spend: SpendIntensity
     collectors: list[dict]
     scanned_at: str
     hosts_checked: int = 0

@@ -107,7 +107,7 @@ async def scan_batch(req: BatchIn, x_api_key: Optional[str] = Header(None, alias
             if "error" in b:
                 return {"query": q, **b}
             return {"query": q, "domain": b["company"]["domain"], "primary": b["primary"], "summary": b["summary"],
-                    "verdicts": b["verdicts"], "lead": b["lead"]}
+                    "verdicts": b["verdicts"], "lead": b["lead"], "spend": b["spend"]}
 
     return {"results": await asyncio.gather(*(one(q) for q in req.queries))}
 

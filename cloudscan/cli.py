@@ -26,6 +26,9 @@ def print_report(r: dict):
     print(f"\nLead score {r['lead']['score']}/100 (grade {r['lead']['grade']})")
     for f in r["lead"]["factors"]:
         print(f"  {f}")
+    print(f"\nSpend intensity: {r['spend']['level']} ({r['spend']['score']}/100)")
+    for f in r["spend"]["factors"]:
+        print(f"  {f}")
     print("\nEvidence")
     for e in r["evidence"]:
         print(f"  [{e['strength']:<6}] {e['provider'].upper():<5} {e['source']:<16} {e['detail']}")
@@ -67,6 +70,7 @@ async def run_batch(src: str, dst: str, fast: bool, concurrency: int):
             gcp=next((v["confidence"] for v in r["verdicts"] if v["provider"] == "gcp"), ""),
             azure=next((v["confidence"] for v in r["verdicts"] if v["provider"] == "azure"), ""),
             lead_score=r["lead"]["score"], lead_grade=r["lead"]["grade"], cloud_summary=r["summary"],
+            spend_intensity=r["spend"]["level"], spend_score=r["spend"]["score"],
             top_evidence=" | ".join(e["detail"] for e in r["evidence"][:3]),
             lead_signals=" | ".join(s["detail"] for s in r["signals"][:3]),
         )

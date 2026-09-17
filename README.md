@@ -80,6 +80,17 @@ CORS is closed by default (the bundled UI is same-origin and needs none of it) �
 `CLOUDSCAN_CORS` to a comma-separated list of allowed origins only if a separate frontend needs
 to call this API directly from the browser.
 
+`lead` and `spend` answer two different questions and are deliberately not blended into one number:
+`lead` is ICP-fit (is this company worth prospecting at all — cloud confirmed, right size, right
+country); `spend` is workload-cost-intensity (given that it's a prospect, how much higher does its
+bill likely run than headcount alone would suggest). A 60-person company running GPU training
+clusters can be a so-so ICP fit (too small) but a `high`/`very high` spend intensity — that's a
+different, and often better, conversation opener than lead score alone. `spend.level` is
+`low`/`medium`/`high`/`very high`, derived from container/Kubernetes evidence, data/ML
+infrastructure evidence, multi-region deployment, multi-cloud, and public infrastructure surface
+area — all things the other collectors already found while producing the cloud verdict, so this
+costs no extra requests.
+
 ### Report shape (`/api/scan`)
 
 ```jsonc
@@ -91,6 +102,7 @@ to call this API directly from the browser.
   "evidence": [{"provider": "aws", "strength": "strong", "source": "dns_hosting", "detail": "app.acme.com → ...", "url": null}],
   "signals": [{"kind": "hiring_cloud_role", "detail": "Hiring 2 infrastructure/DevOps role(s): ...", "source": "job_boards", "weight": 10, "url": "..."}],
   "lead": {"score": 78, "grade": "A", "factors": ["+35 confirmed on AWS", "..."]},
+  "spend": {"level": "high", "score": 60, "factors": ["+25 container/Kubernetes infrastructure (...)", "..."]},
   "collectors": [{"name": "dns_hosting", "evidence": 1, "signals": 0, "notes": ["42 hosts checked."], "error": null, "duration_ms": 1450}],
   "scanned_at": "2026-09-16T23:40:00+00:00",
   "hosts_checked": 42,

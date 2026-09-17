@@ -20,6 +20,7 @@ IAC_TERMS = {
 def analyze_repos(repos, org, source):
     evidence, signals = [], []
     per = {}
+    container_hits, ml_data_hits = [], []
     for r in repos or []:
         if r.get("fork"):
             continue
@@ -29,12 +30,22 @@ def analyze_repos(repos, org, source):
         low = text.lower()
         if any(k in low for k in ("terraform", "kubernetes", "helm", "k8s", "pulumi")):
             signals.append(Signal("iac_public", f"Public infrastructure repo: {r.get('name')}", source, 2, r.get("html_url")))
+        if T.mentions_containers(text):
+            container_hits.append(r)
+        if T.mentions_ml_data(text):
+            ml_data_hits.append(r)
     for prov, hits in per.items():
         r, terms = hits[0]
         evidence.append(Evidence(prov, "medium" if len(hits) >= 2 else "weak", source,
                                  f"{len(hits)} public repo(s) in github.com/{org} reference {', '.join(terms[:3])} — e.g. {r.get('name')}",
                                  r.get("html_url")))
-    return evidence, signals[:3]
+    if container_hits:
+        signals.append(Signal("container_infra", f"Public repo(s) reference container/Kubernetes infrastructure — e.g. {container_hits[0].get('name')}",
+                              source, 1, container_hits[0].get("html_url")))
+    if ml_data_hits:
+        signals.append(Signal("data_ml_infra", f"Public repo(s) reference data/ML infrastructure — e.g. {ml_data_hits[0].get('name')}",
+                              source, 1, ml_data_hits[0].get("html_url")))
+    return evidence, signals[:5]
 
 
 
