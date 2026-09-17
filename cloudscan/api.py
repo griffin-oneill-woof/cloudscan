@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import secrets
-import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -18,6 +19,14 @@ from .cache import Cache
 from .collectors import REGISTRY
 from .engine import scan
 
+logging.basicConfig(level=os.getenv("CLOUDSCAN_LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# httpx logs every single outbound request at INFO — collectors make dozens per scan, which would
+# bury the one line per scan that's actually useful. Keep those at WARNING; raise CLOUDSCAN_LOG_LEVEL
+# to DEBUG (and adjust here) if you ever need to see the underlying requests.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logger = logging.getLogger("cloudscan")
+
 BATCH_CONCURRENCY = int(os.getenv("CLOUDSCAN_BATCH_CONCURRENCY", "4"))
 API_KEY = os.getenv("CLOUDSCAN_API_KEY")   # set to require the X-Api-Key header (or ?key=) on requests
 
@@ -25,9 +34,8 @@ API_KEY = os.getenv("CLOUDSCAN_API_KEY")   # set to require the X-Api-Key header
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not API_KEY:
-        print("CloudScan: CLOUDSCAN_API_KEY is not set — /api/scan, /api/batch and /api/recent are "
-              "open to anyone who can reach this server. Set it before deploying anywhere but your "
-              "own machine.", file=sys.stderr)
+        logger.warning("CLOUDSCAN_API_KEY is not set — /api/scan, /api/batch and /api/recent are open "
+                       "to anyone who can reach this server. Set it before deploying anywhere but your own machine.")
     yield
 
 
@@ -44,12 +52,14 @@ cache = Cache()
 WEB = Path(__file__).resolve().parent.parent / "web" / "index.html"
 
 
-def _check_key(key: Optional[str], x_api_key: Optional[str] = None):
+def _check_key(key: Optional[str], x_api_key: Optional[str] = None, request: Optional[Request] = None):
     if not API_KEY:
         return
     supplied = x_api_key or key
     # compare_digest over a plain != so checking the key can't be timed to guess it a byte at a time.
     if not supplied or not secrets.compare_digest(supplied, API_KEY):
+        client = request.client.host if request and request.client else "unknown"
+        logger.warning("401 Unauthorized: bad or missing API key from %s", client)
         raise HTTPException(401, "Missing or wrong API key. Pass it as the X-Api-Key header (preferred) or ?key=.")
 
 
@@ -59,9 +69,16 @@ async def _cached_scan(q: str, fast: bool, fresh: bool) -> dict:
         hit = cache.get(ck)
         if hit:
             hit["cached"] = True
+            logger.info("scan %r (fast=%s): cache hit", q, fast)
             return hit
+    t0 = time.monotonic()
     body = await scan(q, fast=fast)
-    if "error" not in body:
+    ms = int((time.monotonic() - t0) * 1000)
+    if "error" in body:
+        logger.info("scan %r (fast=%s): %s (%d ms)", q, fast, body["error"], ms)
+    else:
+        logger.info("scan %r (fast=%s): %s, lead=%d spend=%s (%d ms)", q, fast, body.get("primary"),
+                    body["lead"]["score"], body["spend"]["level"], ms)
         cache.put(ck, body)
     body["cached"] = False
     return body
@@ -78,9 +95,9 @@ def health():
 
 
 @app.get("/api/scan")
-async def scan_one(q: str = Query(..., min_length=2, max_length=200), fast: bool = False, fresh: bool = False,
+async def scan_one(request: Request, q: str = Query(..., min_length=2, max_length=200), fast: bool = False, fresh: bool = False,
                    key: Optional[str] = None, x_api_key: Optional[str] = Header(None, alias="X-Api-Key")):
-    _check_key(key, x_api_key)
+    _check_key(key, x_api_key, request)
     body = await _cached_scan(q, fast, fresh)
     if body.get("error") == "not_found":
         raise HTTPException(404, body["message"])
@@ -94,16 +111,18 @@ class BatchIn(BaseModel):
 
 
 @app.post("/api/batch")
-async def scan_batch(req: BatchIn, x_api_key: Optional[str] = Header(None, alias="X-Api-Key")):
-    _check_key(req.key, x_api_key)
+async def scan_batch(req: BatchIn, request: Request, x_api_key: Optional[str] = Header(None, alias="X-Api-Key")):
+    _check_key(req.key, x_api_key, request)
+    logger.info("batch: %d queries (fast=%s) from %s", len(req.queries), req.fast, request.client.host if request.client else "unknown")
     sem = asyncio.Semaphore(BATCH_CONCURRENCY)
 
     async def one(q):
         async with sem:
             try:
                 b = await _cached_scan(q, req.fast, False)
-            except Exception as exc:
-                return {"query": q, "error": str(exc)}
+            except Exception:
+                logger.exception("batch: unhandled error scanning %r", q)
+                return {"query": q, "error": "internal error"}
             if "error" in b:
                 return {"query": q, **b}
             return {"query": q, "domain": b["company"]["domain"], "primary": b["primary"], "summary": b["summary"],
@@ -113,7 +132,7 @@ async def scan_batch(req: BatchIn, x_api_key: Optional[str] = Header(None, alias
 
 
 @app.get("/api/recent")
-def recent(limit: int = 25, key: Optional[str] = None, x_api_key: Optional[str] = Header(None, alias="X-Api-Key")):
-    _check_key(key, x_api_key)
+def recent(request: Request, limit: int = 25, key: Optional[str] = None, x_api_key: Optional[str] = Header(None, alias="X-Api-Key")):
+    _check_key(key, x_api_key, request)
     return {"results": [{"domain": r["company"]["domain"], "primary": r["primary"], "lead": r["lead"]["score"],
                          "scanned_at": r["scanned_at"]} for r in cache.recent(limit)]}

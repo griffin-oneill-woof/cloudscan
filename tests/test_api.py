@@ -54,6 +54,22 @@ def test_cors_closed_by_default(monkeypatch):
     assert "access-control-allow-origin" not in r.headers
 
 
+def test_unauthorized_request_is_logged(monkeypatch, caplog):
+    api_mod = load_api(monkeypatch, api_key="secret123")
+    client = TestClient(api_mod.app)
+    with caplog.at_level("WARNING", logger="cloudscan"):
+        client.get("/api/recent")
+    assert any("401" in r.message for r in caplog.records)
+
+
+def test_startup_warns_when_api_key_missing(monkeypatch, caplog):
+    api_mod = load_api(monkeypatch, api_key=None)
+    with caplog.at_level("WARNING", logger="cloudscan"):
+        with TestClient(api_mod.app):
+            pass
+    assert any("CLOUDSCAN_API_KEY is not set" in r.message for r in caplog.records)
+
+
 def test_cors_opens_only_for_configured_origin(monkeypatch):
     api_mod = load_api(monkeypatch, cors="https://good.example")
     client = TestClient(api_mod.app)
